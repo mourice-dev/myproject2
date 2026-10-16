@@ -6,7 +6,7 @@ const express = require("express");
 const cors = require("cors");
 const server = express(cors());
 server.use((req, res) => {
-    res.send("Hello worlds");
+    res.send("Hello world");
 })
 
 server.listen(3000, () => {
