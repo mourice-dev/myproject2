@@ -494,7 +494,7 @@ Correct:
 git remote add origin https://github.com/mourice-dev/myproject2.git
 ```
 
-### GHCR permission error
+### GHCR permission errors
 
 Error:
 
@@ -509,6 +509,46 @@ docker logout ghcr.io
 docker login ghcr.io
 docker push ghcr.io/mourice-dev/myproject2:latest
 ```
+
+Another Actions error encountered was:
+
+```text
+denied: permission_denied: write_package
+```
+
+In that case, the Docker build and registry login succeeded, but GHCR rejected the final package upload. The cause was authorization for the existing package, not the Dockerfile or Node application.
+
+The repository workflow requests:
+
+```yaml
+permissions:
+  contents: read
+  packages: write
+```
+
+For the automatic token to work, also check the repository's **Settings → Actions → General** page and allow read and write workflow permissions. If the package was first created by a manual `docker push`, open the package settings under the GitHub account's **Packages** page and connect `myproject2` to the `mourice-dev/myproject2` repository. This grants the repository's Actions token access to the package.
+
+If the automatic token still cannot write to the package, use a repository secret instead:
+
+```yaml
+- name: Log in to GitHub Container Registry
+  uses: docker/login-action@v3
+  with:
+    registry: ghcr.io
+    username: ${{ github.repository_owner }}
+    password: ${{ secrets.GHCR_TOKEN }}
+```
+
+Create `GHCR_TOKEN` at the repository's **Settings → Secrets and variables → Actions → Secrets** page, not under Variables. The token must belong to `mourice-dev` and have at least `write:packages` (and `read:packages` for pulling private packages).
+
+Never place the actual token value in a workflow:
+
+```yaml
+# Incorrect: do not commit a real token
+password: ghp_...
+```
+
+If a token is pasted into a workflow, chat, issue, pull request, screenshot, or commit, revoke it and replace the value in the `GHCR_TOKEN` repository secret. GitHub does not show a secret's value after it is saved, so verify it by checking the secret name and the successful workflow run.
 
 ### `node_modules` accidentally committed
 
@@ -530,6 +570,42 @@ ghcr.io/mourice-dev/myproject2:latest
 ```
 
 is a value, not a command. Use it with `docker pull`, `docker push`, `docker run`, or another Docker subcommand.
+
+### Difference between `GITHUB_TOKEN` and `GHCR_TOKEN`
+
+`GITHUB_TOKEN` is a temporary token generated automatically for each Actions run:
+
+```yaml
+username: ${{ github.actor }}
+password: ${{ secrets.GITHUB_TOKEN }}
+```
+
+It is the preferred option when the GHCR package is connected to the repository and the workflow has `packages: write` permission. It does not require storing a personal token.
+
+`GHCR_TOKEN` is a manually created Personal Access Token stored as an encrypted repository secret:
+
+```yaml
+username: ${{ github.repository_owner }}
+password: ${{ secrets.GHCR_TOKEN }}
+```
+
+It can solve `write_package` failures when the automatic token is not authorized for an existing package, but it must be rotated manually and protected carefully.
+
+The username expressions are also different:
+
+- `github.actor` is the account or automation identity that triggered the run.
+- `github.repository_owner` is the stable owner of the repository, `mourice-dev` in this project.
+
+Changing only the username does not grant package permission. The important difference is which token is used as the password.
+
+The current workflow keeps the automatic-token configuration active:
+
+```yaml
+username: ${{ github.actor }}
+password: ${{ secrets.GITHUB_TOKEN }}
+```
+
+The `GHCR_TOKEN` configuration is commented out in the workflow as an alternative. Use only one login configuration at a time. If the automatic token fails again, uncomment the `GHCR_TOKEN` configuration only after creating the repository secret.
 
 ## Recommended next learning steps
 
@@ -563,12 +639,12 @@ This catches dependency and Docker build problems before merging.
 
 After the verification job succeeds, the workflow:
 
-1. Logs in to GHCR using the automatically provided `GITHUB_TOKEN`.
+1. Logs in to GHCR using the token configured in the login step.
 2. Builds the image.
 3. Publishes `ghcr.io/mourice-dev/myproject2:latest`.
 4. Also publishes a commit-SHA tag for that exact build.
 
-The workflow requests `packages: write` permission so no manually copied Docker password or personal access token is needed in GitHub Actions. Keep personal tokens out of workflow files and source code.
+The current workflow requests `packages: write` and uses the automatically provided `GITHUB_TOKEN`. If GHCR package access prevents that token from publishing, configure the encrypted `GHCR_TOKEN` repository secret as described in [GHCR permission errors](#ghcr-permission-errors). Keep personal tokens out of workflow files and source code.
 
 After pushing a change to `main`, check the **Actions** tab in the GitHub repository. A successful run means the new image is available with:
 
