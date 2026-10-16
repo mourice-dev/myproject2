@@ -563,12 +563,12 @@ This catches dependency and Docker build problems before merging.
 
 After the verification job succeeds, the workflow:
 
-1. Logs in to GHCR using the automatically provided `GITHUB_TOKEN`.
+1. Logs in to GHCR using the repository secret `GHCR_TOKEN`.
 2. Builds the image.
 3. Publishes `ghcr.io/mourice-dev/myproject2:latest`.
 4. Also publishes a commit-SHA tag for that exact build.
 
-The workflow requests `packages: write` permission so no manually copied Docker password or personal access token is needed in GitHub Actions. Keep personal tokens out of workflow files and source code.
+Create `GHCR_TOKEN` as a repository secret with a GitHub personal access token that can write packages, then keep the token value only in GitHub secrets.
 
 After pushing a change to `main`, check the **Actions** tab in the GitHub repository. A successful run means the new image is available with:
 
