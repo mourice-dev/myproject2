@@ -544,6 +544,38 @@ is a value, not a command. Use it with `docker pull`, `docker push`, `docker run
 9. Add GitHub Actions to test, build, and publish the image automatically.
 10. Learn how to deploy the image to a Linux server or cloud platform.
 
+## GitHub Actions workflow
+
+The workflow in [`.github/workflows/deploy.yaml`](./.github/workflows/deploy.yaml) automates the CI/CD portion of this project.
+
+### Pull requests to `main`
+
+The workflow:
+
+1. Checks out the repository.
+2. Installs Node.js 22.
+3. Runs `npm ci` using the committed lock file.
+4. Builds the Docker image without publishing it.
+
+This catches dependency and Docker build problems before merging.
+
+### Pushes to `main`
+
+After the verification job succeeds, the workflow:
+
+1. Logs in to GHCR using the automatically provided `GITHUB_TOKEN`.
+2. Builds the image.
+3. Publishes `ghcr.io/mourice-dev/myproject2:latest`.
+4. Also publishes a commit-SHA tag for that exact build.
+
+The workflow requests `packages: write` permission so no manually copied Docker password or personal access token is needed in GitHub Actions. Keep personal tokens out of workflow files and source code.
+
+After pushing a change to `main`, check the **Actions** tab in the GitHub repository. A successful run means the new image is available with:
+
+```powershell
+docker pull ghcr.io/mourice-dev/myproject2:latest
+```
+
 ## Complete repeatable workflow
 
 ```powershell
